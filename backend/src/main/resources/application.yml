@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ecommerce-backend
+  couchbase:
+    connection-string: couchbase://localhost
+    username: Administrator
+    password: password
+    bucket-name: ecommerce
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.ecommerce: DEBUG
+    org.springframework.security: DEBUG
+
+jwt:
+  secret: mySecretKey
+  expiration: 86400000 # 24 hours
+
+cors:
+  allowed-origins: http://localhost:3000
