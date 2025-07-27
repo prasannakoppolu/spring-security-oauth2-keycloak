@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecommerce-backend
+  namespace: ecommerce
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ecommerce-backend
+  template:
+    metadata:
+      labels:
+        app: ecommerce-backend
+    spec:
+      containers:
+      - name: ecommerce-backend
+        image: ecommerce-backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "kubernetes"
+        - name: SPRING_COUCHBASE_CONNECTION_STRING
+          value: "couchbase://couchbase-service:11210"
+        - name: SPRING_COUCHBASE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: couchbase-secret
+              key: username
+        - name: SPRING_COUCHBASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: couchbase-secret
+              key: password
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret
+              key: secret
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "0.5"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecommerce-backend-service
+  namespace: ecommerce
+spec:
+  selector:
+    app: ecommerce-backend
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: couchbase-secret
+  namespace: ecommerce
+type: Opaque
+data:
+  username: QWRtaW5pc3RyYXRvcg==  # Administrator
+  password: cGFzc3dvcmQ=  # password
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt-secret
+  namespace: ecommerce
+type: Opaque
+data:
+  secret: bXlTZWNyZXRLZXk=  # mySecretKey

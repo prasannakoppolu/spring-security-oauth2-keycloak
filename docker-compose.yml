@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  couchbase:
+    image: couchbase:community-7.2.0
+    container_name: ecommerce-couchbase
+    ports:
+      - "8091:8091"
+      - "8092:8092" 
+      - "8093:8093"
+      - "11210:11210"
+    environment:
+      - CLUSTER_NAME=ecommerce-cluster
+    volumes:
+      - couchbase_data:/opt/couchbase/var
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8091/pools"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ecommerce-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_COUCHBASE_CONNECTION_STRING=couchbase://couchbase:11210
+      - SPRING_COUCHBASE_USERNAME=Administrator
+      - SPRING_COUCHBASE_PASSWORD=password
+      - JWT_SECRET=mySecretKey
+    depends_on:
+      couchbase:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ecommerce-frontend
+    ports:
+      - "3000:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    image: nginx:alpine
+    container_name: ecommerce-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - ecommerce-network
+
+volumes:
+  couchbase_data:
+    driver: local
+
+networks:
+  ecommerce-network:
+    driver: bridge
